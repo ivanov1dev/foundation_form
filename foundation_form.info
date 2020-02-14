@@ -1,0 +1,12 @@
+name = Foundation Form
+core = 7.x
+package = Foundation
+version = 7.x-2.7
+project = foundation_form
+project path = sites/all/modules/custom
+
+files[] = class/FormInterface.php
+files[] = class/FormPrototype.php
+files[] = class/FormFactory.php
+files[] = class/FormHelper.php
+files[] = class/Test/TestForm.php

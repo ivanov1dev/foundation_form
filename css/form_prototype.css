@@ -1,0 +1,20 @@
+.form-prototype-container {
+  max-height: 230px;
+  overflow: hidden;
+  overflow-y: scroll;
+}
+div.form-prototype-columns-2 {
+  column-count: 3;
+}
+div.form-prototype-columns-3 {
+  column-count: 3;
+}
+div.form-prototype-columns-4 {
+  column-count: 4;
+}
+div.form-prototype-columns-5 {
+  column-count: 5;
+}
+div.form-prototype-columns-6 {
+  column-count: 6;
+}

@@ -1,0 +1,221 @@
+<?php
+
+/**
+ * @file
+ * Исходный код модуля "foundation_form".
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function foundation_form_menu() {
+  $items = array();
+
+  $items['form/prototype/autocomplete'] = array(
+    'page callback' => 'foundation_form_autocomplete',
+    'page arguments' => array(2),
+    'access arguments' => array('access content'),
+  );
+
+  return $items;
+}
+
+/**
+ * Подготовка формы.
+ *
+ * @param mixed $form
+ *   Массив данных формы.
+ * @param mixed $form_state
+ *   Массив состояния формы.
+ * @param string $class
+ *   Имя класса формы.
+ *
+ * @return array
+ *   Массив полей формы.
+ */
+function foundation_form_form($form, &$form_state, $class, array $settings = array()) {
+  if (isset($class)) {
+    $form = FormFactory::get($class)->build($form, $form_state, $settings);
+  }
+  else {
+    throw new \InvalidArgumentException('Класс формы не определен');
+  }
+
+  return $form;
+}
+
+/**
+ * Валидация формы.
+ *
+ * @param mixed $form
+ *   Массив данных формы.
+ * @param mixed $form_state
+ *   Массив состояния формы.
+ */
+function foundation_form_form_validate($form, &$form_state) {
+  // объект формы
+  $form_object = FormFactory::get($form['#prototype']['class']);
+  $form_object->validate($form, $form_state);
+
+  // дополнительные валидаторы
+  if (!empty($form['#prototype']['validator'])) {
+    $validators = $form['#prototype']['validator'];
+    if (!is_array($validators)) {
+      $validators = array($validators);
+    }
+
+    foreach ($validators as $validator) {
+      if (method_exists($form_object, $validator)) {
+        $form_object->{$validator}($form, $form_state);
+      }
+    }
+  }
+}
+
+/**
+ * Сабмит формы.
+ *
+ * @param mixed $form
+ *   Массив данных формы.
+ * @param mixed $form_state
+ *   Массив состояния формы.
+ */
+function foundation_form_form_submit($form, &$form_state) {
+  $id = $form['#prototype']['class'];
+  if (isset($form_state['input']['prototype_class'])) {
+    $id = $form_state['input']['prototype_class'];
+  }
+
+  $form_object = FormFactory::get($id);
+
+  // общий сабмит формы
+  if (empty($form_state['triggering_element']['#prototype']['submit'])) {
+    $form_object->submit($form, $form_state);
+  }
+  // сабмиты элемента
+  else {
+    $submits = $form_state['triggering_element']['#prototype']['submit'];
+    if (!is_array($submits)) {
+      $submits = array($submits);
+    }
+
+    foreach ($submits as $submit) {
+      if (method_exists($form_object, $submit)) {
+        $form_object->{$submit}($form, $form_state);
+      }
+    }
+  }
+
+  // дополнительные сабмиты
+  if (!empty($form['#prototype']['submit'])) {
+    $submits = $form['#prototype']['submit'];
+    if (!is_array($submits)) {
+      $submits = array($submits);
+    }
+
+    foreach ($submits as $submit) {
+      if (method_exists($form_object, $submit)) {
+        $form_object->{$submit}($form, $form_state);
+      }
+    }
+  }
+}
+
+/**
+ * Сабмит формы.
+ *
+ * @param mixed $form
+ *   Массив данных формы.
+ * @param mixed $form_state
+ *   Массив состояния формы.
+ *
+ * @return mixed
+ *   Результат обработки формы.
+ */
+function foundation_form_form_ajax_submit($form, &$form_state) {
+  $result = array();
+
+  $form_object = FormFactory::get($form['#prototype']['class']);
+
+  // умолчательный обработчик
+  if (empty($form_state['triggering_element']['#prototype']['ajaxSubmit'])) {
+    $result = $form_object->ajax($form, $form_state);
+  }
+  // обработчик элемента
+  else {
+    $submits = $form_state['triggering_element']['#prototype']['ajaxSubmit'];
+    if (!is_array($submits)) {
+      $submits = array($submits);
+    }
+
+    foreach ($submits as $submit) {
+      if (method_exists($form_object, $submit)) {
+        $result += $form_object->{$submit}($form, $form_state);
+      }
+    }
+  }
+
+  return $result;
+}
+
+/**
+ * Автокомплит формы.
+ */
+function foundation_form_autocomplete() {
+  $matches = array();
+
+  $args = func_get_args();
+  if (count($args) > 2) {
+    // подготовка переменных
+    $class = array_shift($args);
+    $type = array_shift($args);
+    $search_string = implode(' ', $args);
+
+    // подготовка объекта формы
+    $form = FormFactory::get($class);
+
+    // выбор метода класса
+    $autocomplete_method = 'autocomplete' . ucfirst($type);
+    if (method_exists($form, $autocomplete_method)) {
+      $matches = $form->{$autocomplete_method}($search_string);
+    }
+    else {
+      $matches = $form->autocomplete($type, $search_string);
+    }
+  }
+
+  // декорирование ответа
+  drupal_add_http_header('Content-Type', 'application/json');
+  print drupal_json_encode($matches);
+  drupal_exit();
+}
+
+/**
+ * Implements hook_theme().
+ */
+function foundation_form_theme($existing, $type, $theme, $path) {
+  return [
+    'numberfield' => [
+      'render element' => 'element',
+    ],
+  ];
+}
+
+/**
+ * @param array $variables
+ *
+ * @return string
+ */
+function theme_numberfield($variables) {
+  $element = $variables['element'];
+  $element['#attributes']['type'] = 'number';
+  element_set_attributes($element, [
+    'id',
+    'name',
+    'value',
+    'size',
+    'maxlength'
+  ]);
+  _form_set_class($element, ['form-text']);
+  return '<input' . drupal_attributes($element['#attributes']) . ' />';
+}
